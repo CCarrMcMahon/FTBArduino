@@ -36,25 +36,18 @@ bool try_handle_packet(std::string packet_id, std::string packet_data) {
  * @param data 
  */
 bool try_parse__connect(std::string data) {
-    // ssid=...&password=...\0
-    const uint8_t ssid_id_len = 5;
-    const uint8_t pass_id_len = 9;
-
-    if (data.length() < 15) {
+    if (data.length() < 2) {
         return false;
     }
 
-    std::size_t seperator_pos = data.find('&');
+    std::size_t seperator_pos = data.find(0x1F);
 
     if (seperator_pos == std::string::npos) {
         return false;
     }
 
-    std::string data_ssid = data.substr(0, seperator_pos);
-    std::string data_pass = data.substr(seperator_pos + 1);
-
-    std::string ssid = data_ssid.substr(ssid_id_len);
-    std::string pass = data_pass.substr(pass_id_len);
+    std::string ssid = data.substr(0, seperator_pos);
+    std::string pass = data.substr(seperator_pos + 1);
 
     Serial.printf("SSID: %s\tPASS: %s\n", ssid.c_str(), pass.c_str());
 
@@ -93,6 +86,8 @@ bool try_handle__connect(std::string ssid, std::string pass) {
     IPAddress local_ip = WiFi.localIP();
     Serial.print("Resolved Address: ");
     Serial.println(ip_to_string(local_ip));
+
+    WiFi.disconnect();
 
     return true;
 }

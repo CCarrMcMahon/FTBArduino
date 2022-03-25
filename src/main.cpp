@@ -24,9 +24,9 @@ void loop() {
         Serial.printf("\n\nReceived Data: %s\n", received_data.c_str());
         
         if (try_parse_packet(received_data)) {
-            bt_serial.println("Success");
+            bt_serial.print("Success");
         } else {
-            bt_serial.println("Fail");
+            bt_serial.print("Fail");
         }
     }
 }
@@ -39,7 +39,7 @@ std::string build_packet() {
         received_char = bt_serial.read();
 
         if (received_char == (char) 0xFF) {
-            delay(1000);
+            delay(2000);
             received_char = bt_serial.read();
 
             if (received_char == (char) 0xFF) {
