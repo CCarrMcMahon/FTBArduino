@@ -15,8 +15,8 @@ void setup() {
 }
 
 void loop() {
-    // check_send_packet();
     check_handle_packet(bt_serial);
+    // check_send_packet();
 
     // if (Serial.available()) {
     //     bt_serial.println(Serial.readString());

@@ -4,11 +4,11 @@
 #include "common.h"
 
 enum PacketType {
+    NONE,
     CONNECT,
     GIVEFOOD,
     ANIMAL,
-    LOWFOOD,
-    NONE
+    LOWFOOD
 };
 
 struct Data {

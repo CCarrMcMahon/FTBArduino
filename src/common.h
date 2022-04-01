@@ -3,15 +3,13 @@
 
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
-#include <string>
 #include <NewPing.h>
 #include <SoftwareSerial.h>
+#include <string>
 #include <list>
 
-const uint8_t PACKET_ID_LEN = 8;
-
 extern std::string g_ssid;
-extern std::string g_pass;
+extern std::string g_password;
 
 //WiFiClient wifi_client;
 
