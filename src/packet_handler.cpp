@@ -6,14 +6,11 @@ void check_handle_packet(Stream &bt_serial) {
         Packet packet = receive_packet(bt_serial);
 
         if (packet.getType() == PacketType::NONE) {
+            Serial.printf("No matching packet found\n");
             return;
         }
 
-        Serial.printf("Type: %d\n", packet.getType());
-        
-        for (std::list<Data>::iterator it = packet.getData().begin(); it != packet.getData().end(); it++) {
-            Serial.printf("Name: %s\tValue: %s\n", (*it).name.c_str(), (*it).value.c_str());
-        }
+        handle_packet(packet);
     }
 }
 
@@ -23,51 +20,76 @@ Packet receive_packet(Stream &bt_serial) {
     Packet packet = Packet();
     PacketType packet_type;
     Data data;
+    bool new_timeout = true;
+    bool needs_last_data = true;
 
     do {
         received_char = bt_serial.read();
+
+        if (!needs_last_data) {
+            received_char = '&';
+        }
 
         switch (received_char) {
             // If received character is a record separator
             case ',':
                 packet_type = parse_type(received_string);
 
-                if (packet_type == PacketType::NONE) {
-                    return packet;
-                }
-
                 packet.setType(packet_type);
                 received_string = "";
+
+                if (!new_timeout) {
+                    new_timeout = true;
+                }
+
                 break;
 
             // If received character is a unit separator
             case '&':
                 data = parse_data(received_string);
 
-                if (!data.name.compare("")) {
-                    return packet;
+                // If the data name is not empty, add it to the packet
+                if (!data.name.empty()) {
+                    packet.addData(data);
+                }
+                
+                received_string = "";
+
+                if (!new_timeout) {
+                    new_timeout = true;
                 }
 
-                packet.addData(data);
-                received_string = "";
+                if (!needs_last_data) {
+                    received_char = (char) 0x00;
+                }
+                
                 break;
 
             // If received character is Bluetooth end of transmission
             case ((char) 0xFF):
-                delay(2000);
-                received_char = bt_serial.read();
-
-                if (received_char == (char) 0xFF) {
-                    received_char = (char) 0x00;
+                if (new_timeout) {
+                    new_timeout = false;
+                    delay(2000);
+                    break;
                 }
 
+                if (needs_last_data) {
+                    needs_last_data = false;
+                    break;
+                }
+                
+                received_char = (char) 0x00;
                 break;
 
             default:
+                received_string.append(1, received_char);
+
+                if (!new_timeout) {
+                    new_timeout = true;
+                }
+               
                 break;
         }
-
-        received_string.append(1, received_char);
     } while (received_char != (char) 0x00);
 
     return packet;
@@ -110,79 +132,103 @@ Data parse_data(std::string received_string) {
     return data;
 }
 
+void handle_packet(Packet packet) {
+    PacketType type = packet.getType();
+    std::list<Data> data = packet.getData();
 
+    Serial.printf("\nType: %d\n", type);
+    Serial.printf("Data Size: %d\n", data.size());
+    
+    for (std::list<Data>::iterator it = data.begin(); it != data.end(); ++it) {
+        Serial.printf("Name: %s\tValue: %s\n", it->name.c_str(), it->value.c_str());
+    }
 
+    switch (type) {
+        case PacketType::CONNECT:
+            try_connect(data);
+            break;
 
-// bool try_parse_packet(std::string packet) {
-//     if (packet.length() < PACKET_ID_LEN) {
-//         return false;
-//     }
+        case PacketType::GIVEFOOD:
+            break;
 
-//     bool status = false;
+        default:
+            break;
+    }
+}
 
-//     std::string packet_id = packet.substr(0, PACKET_ID_LEN);
-//     std::string packet_data = packet.substr(PACKET_ID_LEN);
+bool try_connect(std::list<Data> data) {
+    const char *ssid;
+    const char *password;
+    bool found_ssid = false;
+    bool found_password = false;
 
-//     Serial.printf("Packet ID: %s\tPacket Data: %s\n", packet_id.c_str(), packet_data.c_str());
+    for (std::list<Data>::iterator iter = data.begin(); iter != data.end(); ++iter) {
+        if (!iter->name.compare("ssid")) {
+            ssid = iter->value.c_str();
+            found_ssid = true;
+            continue;
+        }
 
-//     status = try_handle_packet(packet_id, packet_data);
-//     return status;
-// }
+        if (!iter->name.compare("password")) {
+            password = iter->value.c_str();
+            found_password = true;
+            continue;
+        }
+    }
 
-// bool try_handle_packet(std::string packet_id, std::string packet_data) {
-//     bool status = false;
+    if (!found_ssid) {
+        return false;
+    }
 
-//     if (!packet_id.compare("_connect")) {
-//         status = try_parse__connect(packet_data);
-//     } else {
-//         status = false;
-//     }
+    if (!found_password) {
+        return false;
+    }
 
-//     return status;
-// }
+    WiFi.begin(ssid, password);
 
+    Serial.printf("\nTrying to connect to the Wi-Fi network: %s...\n", ssid);
+    Serial.printf("With password: %s\n", password);
+    Serial.printf("Time Required: ");
 
-// bool try_handle__connect(std::string ssid, std::string pass) {
-//     WiFi.begin(ssid.c_str(), pass.c_str());
-
-//     Serial.printf("Trying to connect to the Wi-Fi network: %s...\n", ssid.c_str());
-//     Serial.printf("Time Required: ");
-
-//     int connection_time = 0;
+    int connection_time = 0;
   
-//     // Wait for the Wi-Fi to connect
-//     while (WiFi.status() != WL_CONNECTED) {
-//         // If unable to connect for more than 10 seconds, return
-//         if (connection_time >= 10) {
-//             Serial.printf("\nError: Unable to connect to the Wi-Fi network: %s.\n", ssid.c_str());
-//             return false;  
-//         }
+    // Wait for the Wi-Fi to connect
+    while (WiFi.status() != WL_CONNECTED) {
+        // If unable to connect for more than 10 seconds, return
+        if (connection_time >= 10) {
+            Serial.printf("\nError: Unable to connect to the Wi-Fi network: %s.\n", ssid);
+            return false;  
+        }
 
-//         Serial.printf("%ds, ", connection_time);
-//         connection_time++;
-//         delay(1000);
-//     }
+        Serial.printf("%ds, ", connection_time);
+        connection_time++;
+        delay(1000);
+    }
 
-//     std::string g_ssid = "";
-//     std::string g_pass = "";
+    std::string g_ssid = "";
+    std::string g_password = "";
 
-//     g_ssid = ssid;
-//     g_pass = pass;
+    g_ssid = ssid;
+    g_password = password;
 
-//     Serial.printf("\n\nConnected to the Wi-Fi network: %s.\n", ssid.c_str());
+    Serial.printf("\n\nConnected to the Wi-Fi network: %s.\n", ssid);
 
-//     IPAddress local_ip = WiFi.localIP();
-//     Serial.print("Resolved Address: ");
-//     Serial.println(ip_to_string(local_ip));
+    IPAddress local_ip = WiFi.localIP();
+    Serial.print("Resolved Address: ");
+    Serial.println(ip_to_string(local_ip));
 
-//     WiFi.disconnect();
+    WiFi.disconnect();
 
-//     return true;
-// }
+    return true;
+}
 
-// String ip_to_string(IPAddress &ipAddress) {
-//     return String(ipAddress[0]) + String(".") +
-//            String(ipAddress[1]) + String(".") +
-//            String(ipAddress[2]) + String(".") +
-//            String(ipAddress[3]);
-// }
+String ip_to_string(IPAddress &ipAddress) {
+    return String(ipAddress[0]) + String(".") +
+           String(ipAddress[1]) + String(".") +
+           String(ipAddress[2]) + String(".") +
+           String(ipAddress[3]);
+}
+
+bool try_give_food(std::list<Data> data) {
+    return true;
+}
