@@ -3,8 +3,10 @@
 
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
-#include <SoftwareSerial.h>
 #include <string>
+#include <NewPing.h>
+#include <SoftwareSerial.h>
+#include <list>
 
 const uint8_t PACKET_ID_LEN = 8;
 
