@@ -1,9 +1,9 @@
 #include "packet_handler.h"
 
-void check_handle_packet(Stream &bt_serial) {
+void check_handle_packet() {
     // If data has been recieved by the Bluetooth device
     if (bt_serial.available()) {
-        Packet packet = receive_packet(bt_serial);
+        Packet packet = receive_packet();
 
         if (packet.getType() == PacketType::NONE) {
             Serial.printf("No matching packet found\n");
@@ -14,9 +14,15 @@ void check_handle_packet(Stream &bt_serial) {
     }
 }
 
-Packet receive_packet(Stream &bt_serial) {
+/**
+ * TODO: Possibly remove the record separator value and consolidate the unit separator.
+ * That way, I can think of the packet as a list of items.
+ * Then, I can count each time a unit separator is reached, and consider the first one the "id".
+ * I would also need to add the "id" name to the first data packet to keep things consistant.
+ */
+Packet receive_packet() {
     std::string received_string = "";
-    char received_char = (char) 0xFF;
+    char received_char = BTE_EOT;
     Packet packet = Packet();
     PacketType packet_type;
     Data data;
@@ -27,12 +33,12 @@ Packet receive_packet(Stream &bt_serial) {
         received_char = bt_serial.read();
 
         if (!needs_last_data) {
-            received_char = '&';
+            received_char = UNIT_SEPARATOR;
         }
 
         switch (received_char) {
             // If received character is a record separator
-            case ',':
+            case RECORD_SEPARATOR:
                 packet_type = parse_type(received_string);
 
                 packet.setType(packet_type);
@@ -45,11 +51,11 @@ Packet receive_packet(Stream &bt_serial) {
                 break;
 
             // If received character is a unit separator
-            case '&':
+            case UNIT_SEPARATOR:
                 data = parse_data(received_string);
 
                 // If the data name is not empty, add it to the packet
-                if (!data.name.empty()) {
+                if (!data.getName().empty()) {
                     packet.addData(data);
                 }
                 
@@ -66,7 +72,7 @@ Packet receive_packet(Stream &bt_serial) {
                 break;
 
             // If received character is Bluetooth end of transmission
-            case ((char) 0xFF):
+            case BTE_EOT:
                 if (new_timeout) {
                     new_timeout = false;
                     delay(2000);
@@ -78,7 +84,7 @@ Packet receive_packet(Stream &bt_serial) {
                     break;
                 }
                 
-                received_char = (char) 0x00;
+                received_char = NULL_CHAR;
                 break;
 
             default:
@@ -90,7 +96,7 @@ Packet receive_packet(Stream &bt_serial) {
                
                 break;
         }
-    } while (received_char != (char) 0x00);
+    } while (received_char != NULL_CHAR);
 
     return packet;
 }
@@ -103,31 +109,24 @@ PacketType parse_type(std::string received_string) {
     if (!received_string.compare("givefood")) {
         return PacketType::GIVEFOOD;
     }
-    
-    if (!received_string.compare("__animal")) {
-        return PacketType::ANIMAL;
-    }
-    
-    if (!received_string.compare("low_food")) {
-        return PacketType::LOWFOOD;
-    }
 
     return PacketType::NONE;
 }
 
 Data parse_data(std::string received_string) {
-    Data data;
-    data.name = "";
-    data.value = "";
+    Data data = Data();
 
-    std::size_t seperator_pos = received_string.find_first_of(":");
+    std::size_t seperator_pos = received_string.find_first_of(PROPERTY_SEPARATOR);
 
     if (seperator_pos == std::string::npos) {
         return data;
     }
 
-    data.name = received_string.substr(0, seperator_pos);
-    data.value = received_string.substr(seperator_pos + 1);
+    std::string name = received_string.substr(0, seperator_pos);
+    std::string value = received_string.substr(seperator_pos + 1);
+
+    data.setName(name);
+    data.setValue(value);
 
     return data;
 }
@@ -140,7 +139,7 @@ void handle_packet(Packet packet) {
     Serial.printf("Data Size: %d\n", data.size());
     
     for (std::list<Data>::iterator it = data.begin(); it != data.end(); ++it) {
-        Serial.printf("Name: %s\tValue: %s\n", it->name.c_str(), it->value.c_str());
+        Serial.printf("Name: %s\tValue: %s\n", it->getName().c_str(), it->getValue().c_str());
     }
 
     switch (type) {
@@ -149,6 +148,7 @@ void handle_packet(Packet packet) {
             break;
 
         case PacketType::GIVEFOOD:
+            try_give_food(data);
             break;
 
         default:
@@ -163,14 +163,14 @@ bool try_connect(std::list<Data> data) {
     bool found_password = false;
 
     for (std::list<Data>::iterator iter = data.begin(); iter != data.end(); ++iter) {
-        if (!iter->name.compare("ssid")) {
-            ssid = iter->value.c_str();
+        if (!iter->getName().compare("ssid")) {
+            ssid = iter->getValue().c_str();
             found_ssid = true;
             continue;
         }
 
-        if (!iter->name.compare("password")) {
-            password = iter->value.c_str();
+        if (!iter->getName().compare("password")) {
+            password = iter->getValue().c_str();
             found_password = true;
             continue;
         }
@@ -205,9 +205,6 @@ bool try_connect(std::list<Data> data) {
         delay(1000);
     }
 
-    std::string g_ssid = "";
-    std::string g_password = "";
-
     g_ssid = ssid;
     g_password = password;
 
@@ -217,7 +214,7 @@ bool try_connect(std::list<Data> data) {
     Serial.print("Resolved Address: ");
     Serial.println(ip_to_string(local_ip));
 
-    WiFi.disconnect();
+    WiFi.disconnect(); // TODO: Remove this
 
     return true;
 }
@@ -230,5 +227,51 @@ String ip_to_string(IPAddress &ipAddress) {
 }
 
 bool try_give_food(std::list<Data> data) {
+    const char *str_cups;
+    bool found_cups = false;
+
+    for (std::list<Data>::iterator iter = data.begin(); iter != data.end(); ++iter) {
+        if (!iter->getName().compare("cups")) {
+            str_cups = iter->getValue().c_str();
+            found_cups = true;
+            break;
+        }
+    }
+
+    if (!found_cups) {
+        return false;
+    }
+
+    // Convert string to float
+    float cups = strtof(str_cups, NULL);
+
+    // Dog not allowed to eat
+    if (cups == 0.0f) {
+        // TODO: Handle turning on and off red light along with delay for re-running this function
+        digitalWrite(R_LED_PIN, HIGH);
+        delay(2000);
+        digitalWrite(R_LED_PIN, LOW);
+        return false;
+    }
+
+    cups = max(MIN_CUPS, cups);
+    cups = min(cups, MAX_CUPS);
+
+    uint32_t pulses = cups * 400 * 15;
+
+    digitalWrite(G_LED_PIN, HIGH);
+
+    while (pulses) {
+        digitalWrite(PULSE_PIN, HIGH);
+        delay(1); // Possibly change to delayMicroseconds()
+        digitalWrite(PULSE_PIN, LOW);
+        delay(1); // Possibly change to delayMicroseconds()
+        pulses--;
+    }
+
+    digitalWrite(G_LED_PIN, LOW);
+    
+    gave_food = true;
+
     return true;
 }

@@ -1,6 +1,23 @@
 #include "main.h"
 
 void setup() {
+    pinMode(TX_PIN, OUTPUT);
+    pinMode(RX_PIN, INPUT);
+    pinMode(R_LED_PIN, OUTPUT);
+    pinMode(G_LED_PIN, OUTPUT);
+    pinMode(PULSE_PIN, OUTPUT);
+    pinMode(DIR_PIN, OUTPUT);
+    pinMode(TRIG_PIN, OUTPUT);
+    pinMode(ECHO_PIN, INPUT);
+    pinMode(BTN_PIN, INPUT);
+
+    digitalWrite(TX_PIN, LOW);
+    digitalWrite(R_LED_PIN, LOW);
+    digitalWrite(G_LED_PIN, LOW);
+    digitalWrite(PULSE_PIN, LOW);
+    digitalWrite(DIR_PIN, LOW);
+    digitalWrite(TRIG_PIN, LOW);
+
     Serial.begin(9600);
 
     while (!Serial) {
@@ -15,8 +32,8 @@ void setup() {
 }
 
 void loop() {
-    check_handle_packet(bt_serial);
-    // check_send_packet();
+    check_handle_packet();
+    check_send_packet();
 
     // if (Serial.available()) {
     //     bt_serial.println(Serial.readString());
