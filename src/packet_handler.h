@@ -3,8 +3,8 @@
 
 #include "packet.h"
 
-void check_handle_packet(Stream &bt_serial);
-Packet receive_packet(Stream &bt_serial);
+void check_handle_packet(void);
+Packet receive_packet(void);
 PacketType parse_type(std::string received_string);
 Data parse_data(std::string received_string);
 void handle_packet(Packet packet);
