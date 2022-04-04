@@ -1,6 +1,27 @@
 #include "main.h"
 
+/**
+ * Note, Disconnect D3 when programming
+ */
+
 void setup() {
+    pinMode(TX_PIN, OUTPUT);
+    pinMode(RX_PIN, INPUT);
+    pinMode(TRIG_PIN, OUTPUT);
+    pinMode(ECHO_PIN, INPUT);
+    pinMode(PULSE_PIN, OUTPUT);
+    pinMode(DIR_PIN, OUTPUT);
+    pinMode(BTN_PIN, INPUT);
+    pinMode(R_LED_PIN, OUTPUT);
+    pinMode(G_LED_PIN, OUTPUT);
+
+    digitalWrite(TX_PIN, LOW);
+    digitalWrite(TRIG_PIN, LOW);
+    digitalWrite(PULSE_PIN, LOW);
+    digitalWrite(DIR_PIN, LOW);
+    digitalWrite(R_LED_PIN, LOW);
+    digitalWrite(G_LED_PIN, LOW);
+
     Serial.begin(9600);
 
     while (!Serial) {
@@ -15,40 +36,6 @@ void setup() {
 }
 
 void loop() {
-    if (Serial.available()) {
-        bt_serial.println(Serial.readString());
-    }
-
-    if (bt_serial.available()) {
-        received_data = build_packet();
-        Serial.printf("\n\nReceived Data: %s\n", received_data.c_str());
-        
-        if (try_parse_packet(received_data)) {
-            bt_serial.print("Success");
-        } else {
-            bt_serial.print("Fail");
-        }
-    }
-}
-
-std::string build_packet() {
-    char received_char = (char) 0xFF;
-    std::string received_data = "";
-
-    do {
-        received_char = bt_serial.read();
-
-        if (received_char == (char) 0xFF) {
-            delay(2000);
-            received_char = bt_serial.read();
-
-            if (received_char == (char) 0xFF) {
-                received_char = (char) 0x00;
-            }
-        }
-
-        received_data.append(1, received_char);
-    } while (received_char != (char) 0x00);
-
-    return received_data;
+    check_handle_packet();
+    check_send_packet();
 }

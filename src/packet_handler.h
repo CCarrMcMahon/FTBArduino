@@ -1,12 +1,15 @@
 #ifndef __PACKET_HANDLER_H
 #define __PACKET_HANDLER_H
 
-#include "common.h"
+#include "packet.h"
 
-bool try_parse_packet(std::string packet);
-bool try_handle_packet(std::string packet_id, std::string packet_data);
-bool try_parse__connect(std::string data);
-bool try_handle__connect(std::string ssid, std::string pass);
-String ip_to_string(IPAddress &ipAddress);
+void check_handle_packet(void);
+Packet receive_packet(void);
+PacketType parse_type(std::string received_string);
+Data parse_data(std::string received_string);
+bool handle_packet(Packet packet);
+bool try_connect(std::list<Data> data);
+String ip_to_string(IPAddress &ipAddress); // TODO: Change to std::string eventually
+bool try_give_food(std::list<Data> data);
 
 #endif
