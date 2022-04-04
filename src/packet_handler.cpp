@@ -283,8 +283,6 @@ bool try_give_food(std::list<Data> data) {
     }
 
     digitalWrite(G_LED_PIN, LOW);
-    
-    gave_food = true;
 
     return true;
 }

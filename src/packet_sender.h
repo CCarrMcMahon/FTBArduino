@@ -5,7 +5,6 @@
 
 void check_send_packet(void);
 void check_if_animal(void);
-void check_if_food_low(void);
 void send_packet(Packet packet);
 
 #endif
