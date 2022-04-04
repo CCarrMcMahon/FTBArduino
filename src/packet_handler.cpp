@@ -157,20 +157,20 @@ void handle_packet(Packet packet) {
 }
 
 bool try_connect(std::list<Data> data) {
-    const char *ssid;
-    const char *password;
+    std::string ssid_str = "";
+    std::string password_str = "";
     bool found_ssid = false;
     bool found_password = false;
 
     for (std::list<Data>::iterator iter = data.begin(); iter != data.end(); ++iter) {
         if (!iter->getName().compare("ssid")) {
-            ssid = iter->getValue().c_str();
+            ssid_str = iter->getValue();
             found_ssid = true;
             continue;
         }
 
         if (!iter->getName().compare("password")) {
-            password = iter->getValue().c_str();
+            password_str = iter->getValue();
             found_password = true;
             continue;
         }
@@ -183,6 +183,9 @@ bool try_connect(std::list<Data> data) {
     if (!found_password) {
         return false;
     }
+
+    const char *ssid = ssid_str.c_str();
+    const char *password = password_str.c_str();
 
     WiFi.begin(ssid, password);
 
@@ -227,12 +230,12 @@ String ip_to_string(IPAddress &ipAddress) {
 }
 
 bool try_give_food(std::list<Data> data) {
-    const char *str_cups;
+    std::string cups_str = "";
     bool found_cups = false;
 
     for (std::list<Data>::iterator iter = data.begin(); iter != data.end(); ++iter) {
         if (!iter->getName().compare("cups")) {
-            str_cups = iter->getValue().c_str();
+            cups_str = iter->getValue();
             found_cups = true;
             break;
         }
@@ -242,8 +245,10 @@ bool try_give_food(std::list<Data> data) {
         return false;
     }
 
+    const char *cups_c_str = cups_str.c_str();
+
     // Convert string to float
-    float cups = strtof(str_cups, NULL);
+    float cups = strtof(cups_c_str, NULL);
 
     // Dog not allowed to eat
     if (cups == 0.0f) {
