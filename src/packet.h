@@ -8,8 +8,7 @@ enum PacketType {
     NONE,
     CONNECT,
     GIVEFOOD,
-    ANIMAL,
-    FOOD_LOW
+    ANIMAL
 };
 
 class Data {
