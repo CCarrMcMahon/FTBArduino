@@ -9,6 +9,7 @@ NewPing sonar(TRIG_PIN, ECHO_PIN);
 
 std::string g_ssid = "";
 std::string g_password = "";
+
 bool gave_food = false;
 
 #endif

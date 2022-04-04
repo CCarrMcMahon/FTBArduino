@@ -214,7 +214,7 @@ bool try_connect(std::list<Data> data) {
     Serial.print("Resolved Address: ");
     Serial.println(ip_to_string(local_ip));
 
-    WiFi.disconnect(); // TODO: Remove this
+    WiFi.disconnect(); // TODO: Remove this (Maybe, I have to reconnect to internet layter anyway)
 
     return true;
 }

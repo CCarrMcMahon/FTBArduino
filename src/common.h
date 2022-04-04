@@ -12,15 +12,17 @@
 static const float MIN_CUPS = 0.001f;
 static const float MAX_CUPS = 16.0f;
 
-static const uint8_t TX_PIN = D8;
-static const uint8_t RX_PIN = D7;
-static const uint8_t R_LED_PIN = D6;
-static const uint8_t G_LED_PIN = D5;
-static const uint8_t PULSE_PIN = D4;
-static const uint8_t DIR_PIN = D3;
-static const uint8_t TRIG_PIN = D2;
-static const uint8_t ECHO_PIN = D1;
-static const uint8_t BTN_PIN = D0;
+static const uint32_t DETECTION_TIME = 5000;
+
+static const uint8_t TX_PIN = D8; // CS, Boot fails if HIGH
+static const uint8_t RX_PIN = D7; // MOSI
+static const uint8_t TRIG_PIN = D6; // MISO
+static const uint8_t ECHO_PIN = D5; // SCLK
+static const uint8_t PULSE_PIN = D4; // HIGH at boot, connected to on-board LED, boot fails if LOW
+static const uint8_t DIR_PIN = D3; // Connected to flash btn, boot fails if LOW
+static const uint8_t BTN_PIN = D2; // Often used as SDA
+static const uint8_t R_LED_PIN = D1; // Often used as SCL
+static const uint8_t G_LED_PIN = D0; // HIGH at boot
 
 static const uint8_t SONAR_SAMPLES = 10;
 static const uint8_t MAX_FOOD_DIS_CM = 20;
