@@ -11,13 +11,36 @@
 //     If allowed, send give_food packet back with proper cups
 //         Turn on green light until food is done
 
+uint32_t start_time = millis();
+uint32_t end_time = start_time;
+bool timer_running = false;
+bool animal_packet_sent = false;
+
 void check_send_packet() {
     check_if_animal();
     check_if_food_low();
 }
 
 void check_if_animal() {
-    return;
+    if (!timer_running) {
+        if (digitalRead(BTN_PIN) == HIGH) {
+            timer_running = true;
+            animal_packet_sent = false;
+            start_time = millis();
+        }
+    } else {
+        // If the timer has been running long enough, send a packet if haven't done so
+        if (!animal_packet_sent && millis() - start_time >= DETECTION_TIME) {
+            animal_packet_sent = true;
+
+            Packet packet = Packet(PacketType::ANIMAL, Data("status", "true"));
+            send_packet(packet);
+        }
+
+        if (digitalRead(BTN_PIN) == LOW) {
+            timer_running = false;
+        }
+    }
 }
 
 void check_if_food_low() {
@@ -29,7 +52,7 @@ void check_if_food_low() {
 
     uint32_t avg_time = sonar.ping_median(SONAR_SAMPLES);
     uint32_t avg_dis_cm = avg_time / ((unsigned long) US_ROUNDTRIP_CM);
-    std::string avg_dis_str = std::to_string(avg_dis_cm);
+    std::string avg_dis_str = std::to_string(avg_dis_cm); // TODO: Remove, used for testing
 
     if (avg_dis_cm >= MAX_FOOD_DIS_CM) {
         Packet packet = Packet(PacketType::FOOD_LOW, Data("status", "true"));
