@@ -38,19 +38,4 @@ void setup() {
 void loop() {
     check_handle_packet();
     check_send_packet();
-
-    // if (Serial.available()) {
-    //     bt_serial.println(Serial.readString());
-    // }
-
-    // if (bt_serial.available()) {
-    //     received_data = build_packet();
-    //     Serial.printf("\n\nReceived Data: %s\n", received_data.c_str());
-        
-    //     if (try_parse_packet(received_data)) {
-    //         bt_serial.print("Success");
-    //     } else {
-    //         bt_serial.print("Fail");
-    //     }
-    // }
 }

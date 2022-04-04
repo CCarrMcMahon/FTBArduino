@@ -10,9 +10,9 @@
 
 // TODO: Move static const variables to proper header file
 static const float MIN_CUPS = 0.001f;
-static const float MAX_CUPS = 16.0f;
+static const float MAX_CUPS = 8.0f;
 
-static const uint32_t DETECTION_TIME = 5000;
+static const uint32_t DETECTION_TIME = 3000;
 
 static const uint8_t TX_PIN = D8; // CS, Boot fails if HIGH
 static const uint8_t RX_PIN = D7; // MOSI
