@@ -10,7 +10,11 @@ void check_handle_packet() {
             return;
         }
 
-        handle_packet(packet);
+        if (handle_packet(packet)) {
+            bt_serial.printf("SUCCESS");
+        } else {
+            bt_serial.printf("FAIL");
+        }
     }
 }
 
@@ -131,7 +135,7 @@ Data parse_data(std::string received_string) {
     return data;
 }
 
-void handle_packet(Packet packet) {
+bool handle_packet(Packet packet) {
     PacketType type = packet.getType();
     std::list<Data> data = packet.getData();
 
@@ -142,18 +146,22 @@ void handle_packet(Packet packet) {
         Serial.printf("Name: %s\tValue: %s\n", it->getName().c_str(), it->getValue().c_str());
     }
 
+    bool result = false;
+
     switch (type) {
         case PacketType::CONNECT:
-            try_connect(data);
+            result = try_connect(data);
             break;
 
         case PacketType::GIVEFOOD:
-            try_give_food(data);
+            result = try_give_food(data);
             break;
 
         default:
             break;
     }
+
+    return result;
 }
 
 bool try_connect(std::list<Data> data) {
@@ -217,7 +225,7 @@ bool try_connect(std::list<Data> data) {
     Serial.print("Resolved Address: ");
     Serial.println(ip_to_string(local_ip));
 
-    WiFi.disconnect(); // TODO: Remove this (Maybe, I have to reconnect to internet layter anyway)
+    WiFi.disconnect(); // TODO: Remove this (Maybe, I have to reconnect to internet later anyway)
 
     return true;
 }
@@ -268,9 +276,9 @@ bool try_give_food(std::list<Data> data) {
 
     while (pulses) {
         digitalWrite(PULSE_PIN, HIGH);
-        delay(1); // Possibly change to delayMicroseconds()
+        delay(1);
         digitalWrite(PULSE_PIN, LOW);
-        delay(1); // Possibly change to delayMicroseconds()
+        delay(1);
         pulses--;
     }
 
