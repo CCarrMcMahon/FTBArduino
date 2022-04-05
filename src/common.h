@@ -23,16 +23,17 @@ static const uint8_t BTN_PIN = D2; // I/O, Often used as SDA
 static const uint8_t R_LED_PIN = D1; // I/O, Often used as SCL
 static const uint8_t G_LED_PIN = D0; // HIGH at boot
 
-static const char RECORD_SEPARATOR = ','; // TODO: Replace with 0x1E
-static const char UNIT_SEPARATOR = '&'; // TODO: Replace with 0x1F
-static const char PROPERTY_SEPARATOR = ':';
+static const char PROPERTY_SEPARATOR = '&'; // TODO: Replace with 0x1F
+static const char PAIR_SEPARATOR = ':';
 static const char NULL_CHAR = (char) 0x00;
 static const char BTE_EOT = (char) 0xFF; // Bluetooth end of transmission
 
 extern SoftwareSerial bt_serial;
 
+// TODO: Store in flash
 extern std::string g_ssid;
 extern std::string g_password;
+extern std::string g_mac;
 
 //WiFiClient wifi_client;
 

@@ -4,7 +4,7 @@
 #include "common.h"
 
 // Possibly replace with static const variables for easier comparisons
-enum PacketType {
+enum PacketID {
     NONE,
     CONNECT,
     GIVEFOOD,
@@ -13,32 +13,32 @@ enum PacketType {
 
 class Data {
     private:
-        std::string _name;
+        std::string _key;
         std::string _value;
     
     public:
-        std::string getName();
-        void setName(std::string name);
+        std::string getKey();
+        void setKey(std::string key);
         std::string getValue();
         void setValue(std::string value);
         Data();
-        Data(std::string name, std::string value);
+        Data(std::string key, std::string value);
 };
 
 class Packet {
     private:
-        PacketType _type;
+        PacketID _id;
         std::list<Data> _data;
 
     public:
-        PacketType getType();
-        void setType(PacketType type);
+        PacketID getID();
+        void setID(PacketID id);
         std::list<Data> getData();
         void setData(std::list<Data> data);
         void addData(Data data);
         void clearData();
         Packet();
-        Packet(PacketType type, Data data);
+        Packet(PacketID id, Data data);
 };
 
 #endif

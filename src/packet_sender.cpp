@@ -10,6 +10,10 @@ void check_send_packet() {
 }
 
 void check_if_animal() {
+    if (g_mac.empty()) {
+        return;
+    }
+
     if (!timer_running) {
         if (digitalRead(BTN_PIN) == HIGH) {
             timer_running = true;
@@ -21,7 +25,7 @@ void check_if_animal() {
         if (!animal_packet_sent && millis() - start_time >= DETECTION_TIME) {
             animal_packet_sent = true;
 
-            Packet packet = Packet(PacketType::ANIMAL, Data("status", "true"));
+            Packet packet = Packet(PacketID::ANIMAL, Data("mac", g_mac.c_str()));
             send_packet(packet);
         }
 
@@ -32,27 +36,25 @@ void check_if_animal() {
 }
 
 void send_packet(Packet packet) {
-    PacketType type = packet.getType();
+    PacketID id = packet.getID();
     std::list<Data> data = packet.getData();
 
     std::string message = "";
 
-    switch (type) {
-        case PacketType::ANIMAL:
-            message.append("__animal");
+    switch (id) {
+        case PacketID::ANIMAL:
+            message.append("id:animal");
             break;
         
         default:
             return;
     }
 
-    message.append(1, RECORD_SEPARATOR);
-
     for (std::list<Data>::iterator it = data.begin(); it != data.end(); ++it) {
-        message.append(it->getName());
         message.append(1, PROPERTY_SEPARATOR);
+        message.append(it->getKey());
+        message.append(1, PAIR_SEPARATOR);
         message.append(it->getValue());
-        message.append(1, UNIT_SEPARATOR);
     }
 
     bt_serial.print(message.c_str());
