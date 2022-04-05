@@ -3,10 +3,8 @@
 
 #include "packet.h"
 
-void check_handle_packet(void);
-Packet receive_packet(void);
-PacketType parse_type(std::string received_string);
-Data parse_data(std::string received_string);
+void check_handle_packet();
+Packet receive_packet();
 bool handle_packet(Packet packet);
 bool try_connect(std::list<Data> data);
 String ip_to_string(IPAddress &ipAddress); // TODO: Change to std::string eventually

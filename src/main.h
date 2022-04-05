@@ -8,5 +8,6 @@ SoftwareSerial bt_serial(RX_PIN, TX_PIN);
 
 std::string g_ssid = "";
 std::string g_password = "";
+std::string g_mac = "";
 
 #endif

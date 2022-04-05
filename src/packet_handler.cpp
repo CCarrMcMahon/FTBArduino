@@ -5,7 +5,7 @@ void check_handle_packet() {
     if (bt_serial.available()) {
         Packet packet = receive_packet();
 
-        if (packet.getType() == PacketType::NONE) {
+        if (packet.getID() == PacketID::NONE) {
             Serial.printf("No matching packet found\n");
             return;
         }
@@ -18,142 +18,66 @@ void check_handle_packet() {
     }
 }
 
-/**
- * TODO: Possibly remove the record separator value and consolidate the unit separator.
- * That way, I can think of the packet as a list of items.
- * Then, I can count each time a unit separator is reached, and consider the first one the "id".
- * I would also need to add the "id" name to the first data packet to keep things consistant.
- */
 Packet receive_packet() {
-    std::string received_string = "";
-    char received_char = BTE_EOT;
     Packet packet = Packet();
-    PacketType packet_type;
-    Data data;
-    bool new_timeout = true;
-    bool needs_last_data = true;
+
+    std::string received_string = bt_serial.readString().c_str();
+    std::size_t property_separator_pos = -1;
 
     do {
-        received_char = bt_serial.read();
+        received_string = received_string.substr(property_separator_pos + 1);
+        property_separator_pos = received_string.find_first_of(PROPERTY_SEPARATOR);
 
-        if (!needs_last_data) {
-            received_char = UNIT_SEPARATOR;
+        if (property_separator_pos == std::string::npos) {
+            property_separator_pos = received_string.length();
         }
 
-        switch (received_char) {
-            // If received character is a record separator
-            case RECORD_SEPARATOR:
-                packet_type = parse_type(received_string);
+        std::string pair_string = received_string.substr(0, property_separator_pos);
+        std::size_t pair_separator_pos = pair_string.find_first_of(PAIR_SEPARATOR);
 
-                packet.setType(packet_type);
-                received_string = "";
+        if (pair_separator_pos != std::string::npos) {
+            std::string key = pair_string.substr(0, pair_separator_pos);
+            std::string value = pair_string.substr(pair_separator_pos + 1);
 
-                if (!new_timeout) {
-                    new_timeout = true;
+            // Make sure the key property isn't empty
+            if (!key.empty()) {
+                // If the property is the class ID, it defines the PacketID
+                if (!key.compare("id")) {
+                    if (!value.compare("connect")) {
+                        packet.setID(PacketID::CONNECT);
+                    } else if (!value.compare("givefood")) {
+                        packet.setID(PacketID::GIVEFOOD);
+                    }
+                } else {
+                    // Otherwise, it defines the data
+                    packet.addData(Data(key, value));
                 }
-
-                break;
-
-            // If received character is a unit separator
-            case UNIT_SEPARATOR:
-                data = parse_data(received_string);
-
-                // If the data name is not empty, add it to the packet
-                if (!data.getName().empty()) {
-                    packet.addData(data);
-                }
-                
-                received_string = "";
-
-                if (!new_timeout) {
-                    new_timeout = true;
-                }
-
-                if (!needs_last_data) {
-                    received_char = (char) 0x00;
-                }
-                
-                break;
-
-            // If received character is Bluetooth end of transmission
-            case BTE_EOT:
-                if (new_timeout) {
-                    new_timeout = false;
-                    delay(2000);
-                    break;
-                }
-
-                if (needs_last_data) {
-                    needs_last_data = false;
-                    break;
-                }
-                
-                received_char = NULL_CHAR;
-                break;
-
-            default:
-                received_string.append(1, received_char);
-
-                if (!new_timeout) {
-                    new_timeout = true;
-                }
-               
-                break;
+            }
         }
-    } while (received_char != NULL_CHAR);
-
+    } while (property_separator_pos != received_string.length());
+    
     return packet;
 }
 
-PacketType parse_type(std::string received_string) {
-    if (!received_string.compare("_connect")) {
-        return PacketType::CONNECT;
-    }
-    
-    if (!received_string.compare("givefood")) {
-        return PacketType::GIVEFOOD;
-    }
-
-    return PacketType::NONE;
-}
-
-Data parse_data(std::string received_string) {
-    Data data = Data();
-
-    std::size_t seperator_pos = received_string.find_first_of(PROPERTY_SEPARATOR);
-
-    if (seperator_pos == std::string::npos) {
-        return data;
-    }
-
-    std::string name = received_string.substr(0, seperator_pos);
-    std::string value = received_string.substr(seperator_pos + 1);
-
-    data.setName(name);
-    data.setValue(value);
-
-    return data;
-}
-
 bool handle_packet(Packet packet) {
-    PacketType type = packet.getType();
+    PacketID id = packet.getID();
     std::list<Data> data = packet.getData();
 
-    Serial.printf("\nType: %d\n", type);
+    Serial.printf("\nID: %d\n", id);
     Serial.printf("Data Size: %d\n", data.size());
     
-    for (std::list<Data>::iterator it = data.begin(); it != data.end(); ++it) {
-        Serial.printf("Name: %s\tValue: %s\n", it->getName().c_str(), it->getValue().c_str());
+    for (std::list<Data>::iterator iter = data.begin(); iter != data.end(); ++iter) {
+        Serial.printf("Key: %s\tValue: %s\n", iter->getKey().c_str(), iter->getValue().c_str());
     }
 
     bool result = false;
 
-    switch (type) {
-        case PacketType::CONNECT:
+    switch (id) {
+        case PacketID::CONNECT:
             result = try_connect(data);
             break;
 
-        case PacketType::GIVEFOOD:
+        case PacketID::GIVEFOOD:
             result = try_give_food(data);
             break;
 
@@ -167,28 +91,32 @@ bool handle_packet(Packet packet) {
 bool try_connect(std::list<Data> data) {
     std::string ssid_str = "";
     std::string password_str = "";
+    std::string mac_str = "";
     bool found_ssid = false;
     bool found_password = false;
+    bool found_mac = false;
 
     for (std::list<Data>::iterator iter = data.begin(); iter != data.end(); ++iter) {
-        if (!iter->getName().compare("ssid")) {
+        if (!iter->getKey().compare("ssid")) {
             ssid_str = iter->getValue();
             found_ssid = true;
             continue;
         }
 
-        if (!iter->getName().compare("password")) {
+        if (!iter->getKey().compare("password")) {
             password_str = iter->getValue();
             found_password = true;
             continue;
         }
+
+        if (!iter->getKey().compare("mac")) {
+            mac_str = iter->getValue();
+            found_mac = true;
+            continue;
+        }
     }
 
-    if (!found_ssid) {
-        return false;
-    }
-
-    if (!found_password) {
+    if (!found_ssid || !found_password || !found_mac) {
         return false;
     }
 
@@ -216,8 +144,9 @@ bool try_connect(std::list<Data> data) {
         delay(1000);
     }
 
-    g_ssid = ssid;
-    g_password = password;
+    g_ssid = ssid_str;
+    g_password = password_str;
+    g_mac = mac_str;
 
     Serial.printf("\n\nConnected to the Wi-Fi network: %s.\n", ssid);
 
@@ -242,7 +171,7 @@ bool try_give_food(std::list<Data> data) {
     bool found_cups = false;
 
     for (std::list<Data>::iterator iter = data.begin(); iter != data.end(); ++iter) {
-        if (!iter->getName().compare("cups")) {
+        if (!iter->getKey().compare("cups")) {
             cups_str = iter->getValue();
             found_cups = true;
             break;
@@ -260,7 +189,6 @@ bool try_give_food(std::list<Data> data) {
 
     // Dog not allowed to eat
     if (cups == 0.0f) {
-        // TODO: Handle turning on and off red light along with delay for re-running this function
         digitalWrite(R_LED_PIN, HIGH);
         delay(2000);
         digitalWrite(R_LED_PIN, LOW);

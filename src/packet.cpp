@@ -1,11 +1,11 @@
 #include "packet.h"
 
-std::string Data::getName() {
-    return _name;
+std::string Data::getKey() {
+    return _key;
 }
 
-void Data::setName(std::string name) {
-    _name = name;
+void Data::setKey(std::string key) {
+    _key = key;
 }
 
 std::string Data::getValue() {
@@ -17,21 +17,21 @@ void Data::setValue(std::string value) {
 }
 
 Data::Data() {
-    setName("");
+    setKey("");
     setValue("");
 }
 
-Data::Data(std::string name, std::string value) {
-    setName(name);
+Data::Data(std::string key, std::string value) {
+    setKey(key);
     setValue(value);
 }
 
-PacketType Packet::getType() {
-    return _type;
+PacketID Packet::getID() {
+    return _id;
 }
 
-void Packet::setType(PacketType type) {
-    _type = type;
+void Packet::setID(PacketID id) {
+    _id = id;
 }
 
 std::list<Data> Packet::getData() {
@@ -51,11 +51,11 @@ void Packet::clearData() {
 }
 
 Packet::Packet() {
-    Packet::setType(PacketType::NONE);
+    Packet::setID(PacketID::NONE);
     Packet::clearData();
 }
 
-Packet::Packet(PacketType type, Data data) {
-    Packet::setType(type);
+Packet::Packet(PacketID id, Data data) {
+    Packet::setID(id);
     Packet::addData(data);
 }
