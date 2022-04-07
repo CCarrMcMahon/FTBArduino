@@ -1,28 +1,10 @@
 #include "packet_handler.h"
 
-void check_handle_packet() {
-    // If data has been recieved by the Bluetooth device
-    if (bt_serial.available()) {
-        Packet packet = receive_packet();
-
-        if (packet.getID() == PacketID::NONE) {
-            Serial.printf("No matching packet found\n");
-            return;
-        }
-
-        if (handle_packet(packet)) {
-            bt_serial.printf("SUCCESS");
-        } else {
-            bt_serial.printf("FAIL");
-        }
-    }
-}
-
-Packet receive_packet() {
+Packet string_to_packet(std::string received_string) {
     Packet packet = Packet();
-
-    std::string received_string = bt_serial.readString().c_str();
     std::size_t property_separator_pos = -1;
+
+    Serial.printf("\nReceived String: %s\n", received_string.c_str());
 
     do {
         received_string = received_string.substr(property_separator_pos + 1);
@@ -59,6 +41,20 @@ Packet receive_packet() {
     return packet;
 }
 
+void check_handle_packet() {
+    // If data has been recieved by the Bluetooth device
+    if (bt_serial.available()) {
+        std::string received_string = bt_serial.readString().c_str();
+        Packet packet = string_to_packet(received_string);
+
+        if (handle_packet(packet)) {
+            bt_serial.printf("SUCCESS");
+        } else {
+            bt_serial.printf("FAIL");
+        }
+    }
+}
+
 bool handle_packet(Packet packet) {
     PacketID id = packet.getID();
     std::list<Data> data = packet.getData();
@@ -82,6 +78,7 @@ bool handle_packet(Packet packet) {
             break;
 
         default:
+            Serial.printf("No matching packet found\n");
             break;
     }
 
@@ -89,28 +86,28 @@ bool handle_packet(Packet packet) {
 }
 
 bool try_connect(std::list<Data> data) {
-    std::string ssid_str = "";
-    std::string password_str = "";
-    std::string mac_str = "";
+    std::string ssid = "";
+    std::string password = "";
+    std::string mac = "";
     bool found_ssid = false;
     bool found_password = false;
     bool found_mac = false;
 
     for (std::list<Data>::iterator iter = data.begin(); iter != data.end(); ++iter) {
         if (!iter->getKey().compare("ssid")) {
-            ssid_str = iter->getValue();
+            ssid = iter->getValue();
             found_ssid = true;
             continue;
         }
 
         if (!iter->getKey().compare("password")) {
-            password_str = iter->getValue();
+            password = iter->getValue();
             found_password = true;
             continue;
         }
 
         if (!iter->getKey().compare("mac")) {
-            mac_str = iter->getValue();
+            mac = iter->getValue();
             found_mac = true;
             continue;
         }
@@ -120,50 +117,7 @@ bool try_connect(std::list<Data> data) {
         return false;
     }
 
-    const char *ssid = ssid_str.c_str();
-    const char *password = password_str.c_str();
-
-    WiFi.begin(ssid, password);
-
-    Serial.printf("\nTrying to connect to the Wi-Fi network: %s...\n", ssid);
-    Serial.printf("With password: %s\n", password);
-    Serial.printf("Time Required: ");
-
-    int connection_time = 0;
-  
-    // Wait for the Wi-Fi to connect
-    while (WiFi.status() != WL_CONNECTED) {
-        // If unable to connect for more than 10 seconds, return
-        if (connection_time >= 10) {
-            Serial.printf("\nError: Unable to connect to the Wi-Fi network: %s.\n", ssid);
-            return false;  
-        }
-
-        Serial.printf("%ds, ", connection_time);
-        connection_time++;
-        delay(1000);
-    }
-
-    g_ssid = ssid_str;
-    g_password = password_str;
-    g_mac = mac_str;
-
-    Serial.printf("\n\nConnected to the Wi-Fi network: %s.\n", ssid);
-
-    IPAddress local_ip = WiFi.localIP();
-    Serial.print("Resolved Address: ");
-    Serial.println(ip_to_string(local_ip));
-
-    WiFi.disconnect(); // TODO: Remove this (Maybe, I have to reconnect to internet later anyway)
-
-    return true;
-}
-
-String ip_to_string(IPAddress &ipAddress) {
-    return String(ipAddress[0]) + String(".") +
-           String(ipAddress[1]) + String(".") +
-           String(ipAddress[2]) + String(".") +
-           String(ipAddress[3]);
+    return try_connect_wifi(ssid, password, mac);
 }
 
 bool try_give_food(std::list<Data> data) {
