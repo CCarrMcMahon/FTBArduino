@@ -5,6 +5,7 @@
 #include "packet_handler.h"
 
 SoftwareSerial bt_serial(RX_PIN, TX_PIN);
+WiFiClient my_client;
 
 std::string g_ssid = "";
 std::string g_password = "";

@@ -34,6 +34,19 @@ void setup() {
     while (!bt_serial) {
         
     }
+
+    EEPROM.begin(EEPROM_SIZE);
+
+    if (read_from_eeprom()) {
+        Serial.printf("Stored variables found\n");
+        Serial.printf("SSID: %s\nPassword: %s\nMAC: %s\n", g_ssid.c_str(), g_password.c_str(), g_mac.c_str());
+
+        wifi_check();
+    } else {
+        Serial.printf("No stored variables found\n");
+        digitalWrite(R_LED_PIN, HIGH);
+        digitalWrite(G_LED_PIN, HIGH);
+    }
 }
 
 void loop() {
