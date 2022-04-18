@@ -1,105 +1,170 @@
 #include "packet_handler.h"
 
-bool try_parse_packet(std::string packet) {
-    if (packet.length() < PACKET_ID_LEN) {
-        return false;
-    }
+Packet string_to_packet(std::string received_string) {
+    Packet packet = Packet();
+    std::size_t property_separator_pos = -1;
 
-    bool status = false;
+    Serial.printf("\nReceived String: %s\n", received_string.c_str());
 
-    std::string packet_id = packet.substr(0, PACKET_ID_LEN);
-    std::string packet_data = packet.substr(PACKET_ID_LEN);
+    do {
+        received_string = received_string.substr(property_separator_pos + 1);
+        property_separator_pos = received_string.find_first_of(PROPERTY_SEPARATOR);
 
-    Serial.printf("Packet ID: %s\tPacket Data: %s\n", packet_id.c_str(), packet_data.c_str());
-
-    status = try_handle_packet(packet_id, packet_data);
-    return status;
-}
-
-bool try_handle_packet(std::string packet_id, std::string packet_data) {
-    bool status = false;
-
-    if (!packet_id.compare("_connect")) {
-        status = try_parse__connect(packet_data);
-    } else {
-        status = false;
-    }
-
-    return status;
-}
-
-/**
- * @brief Packet used to try to connect to a Wi-Fi network.
- * Contains an SSID and a PASSWORD.
- * Of the form "ssid=...&password=...\0"
- * 
- * @param data 
- */
-bool try_parse__connect(std::string data) {
-    // ssid=...&password=...\0
-    const uint8_t ssid_id_len = 5;
-    const uint8_t pass_id_len = 9;
-
-    if (data.length() < 15) {
-        return false;
-    }
-
-    std::size_t seperator_pos = data.find('&');
-
-    if (seperator_pos == std::string::npos) {
-        return false;
-    }
-
-    std::string data_ssid = data.substr(0, seperator_pos);
-    std::string data_pass = data.substr(seperator_pos + 1);
-
-    std::string ssid = data_ssid.substr(ssid_id_len);
-    std::string pass = data_pass.substr(pass_id_len);
-
-    Serial.printf("SSID: %s\tPASS: %s\n", ssid.c_str(), pass.c_str());
-
-    return try_handle__connect(ssid, pass);
-}
-
-bool try_handle__connect(std::string ssid, std::string pass) {
-    WiFi.begin(ssid.c_str(), pass.c_str());
-
-    Serial.printf("Trying to connect to the Wi-Fi network: %s...\n", ssid.c_str());
-    Serial.printf("Time Required: ");
-
-    int connection_time = 0;
-  
-    // Wait for the Wi-Fi to connect
-    while (WiFi.status() != WL_CONNECTED) {
-        // If unable to connect for more than 10 seconds, return
-        if (connection_time >= 10) {
-            Serial.printf("\nError: Unable to connect to the Wi-Fi network: %s.\n", ssid.c_str());
-            return false;  
+        if (property_separator_pos == std::string::npos) {
+            property_separator_pos = received_string.length();
         }
 
-        Serial.printf("%ds, ", connection_time);
-        connection_time++;
-        delay(1000);
-    }
+        std::string pair_string = received_string.substr(0, property_separator_pos);
+        std::size_t pair_separator_pos = pair_string.find_first_of(PAIR_SEPARATOR);
 
-    std::string g_ssid = "";
-    std::string g_pass = "";
+        if (pair_separator_pos != std::string::npos) {
+            std::string key = pair_string.substr(0, pair_separator_pos);
+            std::string value = pair_string.substr(pair_separator_pos + 1);
 
-    g_ssid = ssid;
-    g_pass = pass;
-
-    Serial.printf("\n\nConnected to the Wi-Fi network: %s.\n", ssid.c_str());
-
-    IPAddress local_ip = WiFi.localIP();
-    Serial.print("Resolved Address: ");
-    Serial.println(ip_to_string(local_ip));
-
-    return true;
+            // Make sure the key property isn't empty
+            if (!key.empty()) {
+                // If the property is the class ID, it defines the PacketID
+                if (!key.compare("id")) {
+                    if (!value.compare("connect")) {
+                        packet.setID(PacketID::CONNECT);
+                    } else if (!value.compare("givefood")) {
+                        packet.setID(PacketID::GIVEFOOD);
+                    }
+                } else {
+                    // Otherwise, it defines the data
+                    packet.addData(Data(key, value));
+                }
+            }
+        }
+    } while (property_separator_pos != received_string.length());
+    
+    return packet;
 }
 
-String ip_to_string(IPAddress &ipAddress) {
-    return String(ipAddress[0]) + String(".") +
-           String(ipAddress[1]) + String(".") +
-           String(ipAddress[2]) + String(".") +
-           String(ipAddress[3]);
+void check_handle_packet() {
+    // If data has been recieved by the Bluetooth device
+    if (bt_serial.available()) {
+        std::string received_string = bt_serial.readString().c_str();
+        Packet packet = string_to_packet(received_string);
+
+        if (handle_packet(packet)) {
+            bt_serial.printf("SUCCESS");
+        } else {
+            bt_serial.printf("FAIL");
+        }
+    }
+}
+
+bool handle_packet(Packet packet) {
+    PacketID id = packet.getID();
+    std::list<Data> data = packet.getData();
+
+    Serial.printf("\nID: %d\n", id);
+    Serial.printf("Data Size: %d\n", data.size());
+    
+    for (std::list<Data>::iterator iter = data.begin(); iter != data.end(); ++iter) {
+        Serial.printf("Key: %s\tValue: %s\n", iter->getKey().c_str(), iter->getValue().c_str());
+    }
+
+    bool result = false;
+
+    switch (id) {
+        case PacketID::CONNECT:
+            result = try_connect(data);
+            break;
+
+        case PacketID::GIVEFOOD:
+            result = try_give_food(data);
+            break;
+
+        default:
+            Serial.printf("No matching packet found\n");
+            break;
+    }
+
+    return result;
+}
+
+bool try_connect(std::list<Data> data) {
+    std::string ssid = "";
+    std::string password = "";
+    std::string mac = "";
+    bool found_ssid = false;
+    bool found_password = false;
+    bool found_mac = false;
+
+    for (std::list<Data>::iterator iter = data.begin(); iter != data.end(); ++iter) {
+        if (!iter->getKey().compare("ssid")) {
+            ssid = iter->getValue();
+            found_ssid = true;
+            continue;
+        }
+
+        if (!iter->getKey().compare("password")) {
+            password = iter->getValue();
+            found_password = true;
+            continue;
+        }
+
+        if (!iter->getKey().compare("mac")) {
+            mac = iter->getValue();
+            found_mac = true;
+            continue;
+        }
+    }
+
+    if (!found_ssid || !found_password || !found_mac) {
+        return false;
+    }
+
+    return try_connect_wifi(ssid, password, mac);
+}
+
+bool try_give_food(std::list<Data> data) {
+    std::string cups_str = "";
+    bool found_cups = false;
+
+    for (std::list<Data>::iterator iter = data.begin(); iter != data.end(); ++iter) {
+        if (!iter->getKey().compare("cups")) {
+            cups_str = iter->getValue();
+            found_cups = true;
+            break;
+        }
+    }
+
+    if (!found_cups) {
+        return false;
+    }
+
+    const char *cups_c_str = cups_str.c_str();
+
+    // Convert string to float
+    float cups = strtof(cups_c_str, NULL);
+
+    // Dog not allowed to eat
+    if (cups == 0.0f) {
+        digitalWrite(R_LED_PIN, HIGH);
+        delay(2000);
+        digitalWrite(R_LED_PIN, LOW);
+        return false;
+    }
+
+    cups = max(MIN_CUPS, cups);
+    cups = min(cups, MAX_CUPS);
+
+    uint32_t pulses = cups * 400 * 15;
+
+    digitalWrite(G_LED_PIN, HIGH);
+
+    while (pulses) {
+        digitalWrite(PULSE_PIN, HIGH);
+        delay(1);
+        digitalWrite(PULSE_PIN, LOW);
+        delay(1);
+        pulses--;
+    }
+
+    digitalWrite(G_LED_PIN, LOW);
+
+    return true;
 }
