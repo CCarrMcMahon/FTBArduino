@@ -8,7 +8,7 @@
 #include <list>
 #include <EEPROM.h>
 
-static const std::string ROOT = "eed0-69-80-148-57.ngrok.io";
+static const std::string ROOT = "f760-69-80-148-129.ngrok.io";
 static const std::string DIRECTORY = "/FTBServer/login_signup/";
 static const std::string SITE = "http://" + ROOT + DIRECTORY;
 
